@@ -1,4 +1,4 @@
-name: volunteering
+name: volunteerhub
 services:
   db:
     image: postgres:17-alpine

@@ -13,3 +13,4 @@ dist/
 coverage/
 *.egg-info/
 *.db
+.npm-cache/
