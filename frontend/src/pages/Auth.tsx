@@ -48,9 +48,7 @@ export default function Auth({ register = false }: { register?: boolean }) {
   return (
     <div className="auth-layout">
       <div className="auth-story">
-        <h1>
-          Присоединяйтесь!
-        </h1>
+        <h1>Присоединяйтесь!</h1>
       </div>
       <section className="panel">
         <h2>{register ? "Создать аккаунт" : "Войти"}</h2>

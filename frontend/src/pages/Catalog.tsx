@@ -39,7 +39,6 @@ export function Catalog({
   }
   return (
     <>
-
       <form className="filters panel" onSubmit={search}>
         <label className="grow">
           Поиск
