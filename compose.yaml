@@ -1,0 +1,44 @@
+name: volunteering
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: volunteering
+      POSTGRES_USER: volunteering
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U volunteering -d volunteering']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    environment:
+      DB_HOST: db
+      DB_NAME: volunteering
+      DB_USER: volunteering
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8080}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  frontend:
+    build: ./frontend
+    ports:
+      - '127.0.0.1:${APP_PORT:-8080}:80'
+    depends_on:
+      backend:
+        condition: service_healthy
+volumes:
+  postgres_data:
