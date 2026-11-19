@@ -1,0 +1,209 @@
+name: Quality
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Measurement checkpoint'
+        type: choice
+        options: [lab5, lab6, lab7, final]
+        default: lab5
+permissions:
+  contents: read
+
+jobs:
+  commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate commit messages
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            python scripts/check_commits.py --range "$BASE..$HEAD"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then
+            python scripts/check_commits.py --range "$BEFORE..HEAD"
+          else
+            python scripts/check_commits.py --range HEAD
+          fi
+      - run: python -m unittest discover -s scripts/tests -v
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: volunteering_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U test -d volunteering_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://test:test-only-password@localhost:5432/volunteering_test
+      DATABASE_URL: postgresql+psycopg://test:test-only-password@localhost:5432/volunteering_test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --no-cache-dir -c requirements-dev.lock.txt -e '.[dev]'
+      - run: mkdir -p ../reports/backend
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: ruff check . --output-format json --output-file ../reports/backend/ruff.json
+      - name: Formatting
+        id: format
+        continue-on-error: true
+        run: ruff format --check .
+      - name: Check migrations
+        run: |
+          alembic upgrade head
+          alembic check
+      - name: Unit and PostgreSQL integration tests
+        id: tests
+        continue-on-error: true
+        run: pytest --cov=app --cov-report=json:../reports/backend/coverage.json --cov-report=xml:../reports/backend/coverage.xml --junitxml=../reports/backend/junit.xml
+      - name: Record dependency versions
+        if: always()
+        run: pip freeze > ../reports/backend/dependencies.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-reports
+          path: reports/backend
+      - name: Quality gate
+        if: always()
+        env:
+          LINT: ${{ steps.lint.outcome }}
+          FORMAT: ${{ steps.format.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+        run: test "$LINT" = success && test "$FORMAT" = success && test "$TESTS" = success
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          mkdir -p reports ../reports/frontend
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: npm run lint -- --format json --output-file ../reports/frontend/eslint.json
+      - name: Formatting
+        id: format
+        continue-on-error: true
+        run: npm run format:check
+      - name: Tests
+        id: tests
+        continue-on-error: true
+        run: npm run test:coverage
+      - name: Collect reports
+        if: always()
+        run: |
+          mkdir -p ../reports/frontend
+          cp reports/junit.xml ../reports/frontend/ 2>/dev/null || true
+          cp coverage/coverage-summary.json ../reports/frontend/ 2>/dev/null || true
+          cp package-lock.json ../reports/frontend/ 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-reports
+          path: reports/frontend
+      - name: Quality gate
+        if: always()
+        env:
+          LINT: ${{ steps.lint.outcome }}
+          FORMAT: ${{ steps.format.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+        run: test "$LINT" = success && test "$FORMAT" = success && test "$TESTS" = success
+  metrics:
+    if: always()
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: backend-reports
+          path: reports/backend
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: frontend-reports
+          path: reports/frontend
+      - name: Aggregate
+        env:
+          STAGE: ${{ inputs.stage || 'change' }}
+        run: python scripts/metrics.py --stage "$STAGE" --commit "$(git rev-parse HEAD)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-metrics
+          path: reports
+      - name: Summary
+        if: always()
+        run: |
+          echo '## Quality measurements' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Four metric groups are automated. Commit frequency is recorded separately from GitHub Insights.' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat reports/metrics.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+  build:
+    needs: [commits, backend, frontend, metrics]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-reports
+          path: reports/frontend
+      - name: Build frontend with tested dependency lock
+        working-directory: frontend
+        run: |
+          cp ../reports/frontend/package-lock.json package-lock.json
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Build backend distribution
+        run: |
+          pip install --no-cache-dir build
+          python -m build backend
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prototype-build
+          path: |
+            frontend/dist
+            backend/dist
