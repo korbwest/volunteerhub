@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import User
+from app.models import Project, User
 from app.schemas import ProfilePatch
 from app.security import (
     csrf_guard,
@@ -34,6 +35,38 @@ def update_profile(
     db.commit()
     db.refresh(user)
     return private_profile(user)
+
+
+@router.delete(
+    "/profile",
+    status_code=204,
+    response_class=Response,
+    dependencies=[Depends(csrf_guard)],
+    summary="Удалить собственный профиль",
+    description=(
+        "Безвозвратно удаляет аккаунт текущего пользователя и очищает cookie сессии. "
+        "Если у пользователя есть проекты (включая архивные), удаление запрещено. "
+        "Нужны cookie сессии и X-CSRF-Token из ответа входа или /api/auth/me."
+    ),
+    responses={
+        401: {"description": "Требуется вход"},
+        403: {"description": "Неверный CSRF-токен или источник запроса"},
+        409: {"description": "У пользователя есть связанные проекты"},
+    },
+)
+def delete_profile(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if db.scalar(select(Project.id).where(Project.owner_id == user.id).limit(1)) is not None:
+        raise HTTPException(409, "Нельзя удалить профиль с проектами, включая архивные")
+    db.delete(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        # A project may have been created after the check above.
+        raise HTTPException(409, "Нельзя удалить профиль со связанными данными") from None
+    response = Response(status_code=204)
+    response.delete_cookie("session", path="/")
+    return response
 
 
 @router.get("/organizations")
