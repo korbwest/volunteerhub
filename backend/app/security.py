@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.models import User
@@ -58,11 +58,9 @@ def current_user(request: Request, db: Session = Depends(get_db)):
     return user
 
 
-def csrf_guard(request: Request):
+def csrf_guard(request: Request, csrf_token: str = Header(default="", alias="X-CSRF-Token")):
     data = claims(request)
-    if not secrets.compare_digest(
-        request.headers.get("X-CSRF-Token", "").encode(), data["csrf"].encode()
-    ):
+    if not secrets.compare_digest(csrf_token.encode(), data["csrf"].encode()):
         raise HTTPException(403, "Обновите страницу и повторите действие")
 
 

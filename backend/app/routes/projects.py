@@ -1,6 +1,6 @@
 from datetime import UTC, date, datetime, time, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -136,6 +136,36 @@ def update_project(
     db.commit()
     db.refresh(project)
     return serialize(project)
+
+
+@router.delete(
+    "/projects/{project_id}",
+    status_code=204,
+    response_class=Response,
+    dependencies=[Depends(csrf_guard)],
+    summary="Удалить собственный проект",
+    description=(
+        "Безвозвратно удаляет черновик или опубликованный проект организатора. "
+        "Архивные проекты доступны только для чтения. "
+        "Нужны cookie сессии и X-CSRF-Token из ответа входа или /api/auth/me."
+    ),
+    responses={
+        401: {"description": "Требуется вход"},
+        403: {"description": "Нет прав организатора или неверный CSRF-токен"},
+        404: {"description": "Проект не найден или принадлежит другому организатору"},
+        409: {"description": "Архивный проект нельзя удалить"},
+    },
+)
+def delete_project(
+    project_id: int,
+    user: User = Depends(organizer),
+    db: Session = Depends(get_db),
+):
+    project = owned(project_id, user, db)
+    ensure_editable(project.status)
+    db.delete(project)
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.post("/projects/{project_id}/status", dependencies=[Depends(csrf_guard)])
