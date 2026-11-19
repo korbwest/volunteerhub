@@ -12,7 +12,7 @@ function AvatarImage({ src, name }: AvatarProps) {
   if (!src || failed) {
     return (
       <span className="avatar avatar-placeholder" role="img" aria-label={label}>
-        {name.trim().charAt(0).toLocaleUpperCase("ru-RU") || "✳"}
+        {name.trim().charAt(0).toLocaleUpperCase("ru-RU")}
       </span>
     );
   }

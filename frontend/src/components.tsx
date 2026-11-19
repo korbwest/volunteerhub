@@ -56,7 +56,6 @@ export function Feedback({
 export function Empty({ title, text }: { title: string; text: string }) {
   return (
     <div className="empty">
-      <span aria-hidden="true">✳</span>
       <h2>{title}</h2>
       <p>{text}</p>
     </div>
@@ -121,7 +120,7 @@ export function ProjectCard({ project }: { project: Project }) {
           <span>
             {project.duration} {units[project.duration_unit]}
           </span>
-          <Link to={`/projects/${project.id}`}>Подробнее →</Link>
+          <Link to={`/projects/${project.id}`}>Подробнее</Link>
         </div>
       </div>
     </article>

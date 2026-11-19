@@ -69,7 +69,7 @@ function ManageList() {
                     {new Date(project.starts_at).toLocaleDateString("ru-RU")}
                   </p>
                 </div>
-                <Link to={`/manage/${project.id}`}>Открыть →</Link>
+                <Link to={`/manage/${project.id}`}>Открыть</Link>
               </article>
             ))}
           </div>
@@ -175,7 +175,7 @@ function ProjectForm({ project }: { project?: Project }) {
   return (
     <>
       <Link className="back" to="/manage">
-        ← Мои проекты
+        Мои проекты
       </Link>
       <h1>{current ? current.title : "Новый проект"}</h1>
       {current && <span className="tag">{statuses[current.status]}</span>}
@@ -328,7 +328,7 @@ function ProjectForm({ project }: { project?: Project }) {
             </div>
           )}
           {current && (
-            <Link to={`/projects/${current.id}`}>Посмотреть карточку →</Link>
+            <Link to={`/projects/${current.id}`}>Посмотреть карточку</Link>
           )}
         </aside>
       </div>

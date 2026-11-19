@@ -29,7 +29,7 @@ export default function App() {
       <header>
         <div className="nav-wrap">
           <Link className="brand" to="/">
-            <span aria-hidden="true">✳</span> рядом
+            <span aria-hidden="true">#</span> рядом
             <span className="brand-dot">.</span>
           </Link>
           <nav aria-label="Основное меню">

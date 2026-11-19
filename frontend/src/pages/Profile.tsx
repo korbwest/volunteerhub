@@ -85,7 +85,7 @@ export default function Profile() {
                 rows={5}
               />
             </label>
-            {user.role === "VOLUNTEER" ? (
+            {user.role === "VOLUNTEER" && (
               <>
                 <label>
                   Навыки
@@ -104,16 +104,6 @@ export default function Profile() {
                   />
                 </label>
               </>
-            ) : (
-              <label>
-                Сайт организации
-                <input
-                  type="url"
-                  name="website"
-                  defaultValue={user.website}
-                  maxLength={2000}
-                />
-              </label>
             )}
             <label>
               Ссылка на аватар
@@ -141,7 +131,7 @@ export default function Profile() {
               <h2>Ваши инициативы</h2>
               <p>Создавайте проекты и управляйте их публикацией.</p>
               <Link className="button" to="/manage">
-                Мои проекты →
+                Мои проекты
               </Link>
             </section>
           ) : (
@@ -151,7 +141,7 @@ export default function Profile() {
                 title="История участия пока пуста"
                 text="Заявки, баллы, рейтинг и грейд появятся после подключения модуля участия."
               />
-              <Link to="/">Найти проект →</Link>
+              <Link to="/">Найти проект</Link>
             </section>
           )}
         </aside>

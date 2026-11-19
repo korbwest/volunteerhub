@@ -70,11 +70,11 @@ export function Catalog({
               </select>
             </label>
             <label>
-              С даты (UTC)
+              С даты
               <input name="date_from" type="date" />
             </label>
             <label>
-              По дату (UTC)
+              По дату
               <input name="date_to" type="date" />
             </label>
           </>
@@ -108,7 +108,7 @@ export function Catalog({
                     {item.description ||
                       "Организация ещё не добавила описание."}
                   </p>
-                  <Link to={`/organizations/${item.id}`}>Об организации →</Link>
+                  <Link to={`/organizations/${item.id}`}>Об организации</Link>
                 </article>
               ) : (
                 <ProjectCard key={item.id} project={item as Project} />
@@ -137,7 +137,7 @@ export function ProjectDetail() {
   return (
     <>
       <Link className="back" to="/">
-        ← Все проекты
+        Все проекты
       </Link>
       <Feedback error={error} loading={loading} />
       {project && (
@@ -182,7 +182,7 @@ export function ProjectDetail() {
                 <dd>{project.location}</dd>
               </dl>
               <Link to={`/organizations/${project.owner_id}`}>
-                Об организаторе →
+                Об организаторе
               </Link>
               <p className="notice">
                 Подача заявок появится на следующем этапе развития сервиса.
@@ -207,7 +207,7 @@ export function OrganizationDetail() {
   return (
     <>
       <Link className="back" to="/organizations">
-        ← Все организации
+        Все организации
       </Link>
       <Feedback error={error} loading={loading} />
       {data && (
@@ -225,7 +225,7 @@ export function OrganizationDetail() {
             </p>
             {data.website && (
               <a href={data.website} target="_blank" rel="noreferrer">
-                Сайт организации ↗
+                Сайт организации
               </a>
             )}
           </section>
